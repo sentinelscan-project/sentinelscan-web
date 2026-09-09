@@ -21,6 +21,13 @@ export const metadata: Metadata = {
   },
   description:
     "SentinelScan is a platform for authorized web application security assessment: endpoint discovery, security scanning with OWASP ZAP, and AI-assisted analysis of the findings.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
