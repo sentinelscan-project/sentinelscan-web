@@ -1,26 +1,434 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   SentinelScan design tokens
+
+   A bright, editorial product palette on an off-white canvas. Electric blue is
+   the brand; coral and lime are accents used sparingly to mark specific things
+   (flagged endpoints, available stages); violet is rare and reserved for the
+   AI-analysis layer.
+
+   Text-safe variants exist for the accents (`*-ink`) because the raw accent
+   hues do not carry enough contrast on a light canvas — use those for type and
+   the plain hue for fills, dots, and borders.
+   --------------------------------------------------------------------------- */
+@theme {
+  --color-canvas: #f7f8fc;
+  --color-surface: #ffffff;
+  --color-raised: #f2f4fa;
+  --color-sunken: #eceff7;
+  --color-hairline: #e2e6f0;
+  --color-hairline-soft: #eef1f7;
+
+  --color-ink: #111827;
+  --color-muted: #4b5563;
+  --color-faint: #6b7280;
+
+  --color-brand: #2563ff;
+  --color-brand-strong: #1b4ae0;
+  --color-brand-soft: #e8eeff;
+
+  --color-coral: #ff5c35;
+  --color-coral-ink: #c2410c;
+  --color-coral-soft: #ffece7;
+
+  --color-lime: #b7f34a;
+  --color-lime-ink: #4d7c0f;
+  --color-lime-soft: #f2fce0;
+
+  --color-arc: #7c3aed;
+  --color-arc-soft: #f1eaff;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--color-brand-soft);
+  color: var(--color-ink);
+}
+
+/* --- Surface helpers ------------------------------------------------------ */
+
+/* Technical grid, kept at very low contrast so it reads as paper texture. */
+.surface-grid {
+  background-image:
+    linear-gradient(to right, var(--color-hairline) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-hairline) 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: 0.55;
+  mask-image: radial-gradient(75% 65% at 50% 35%, #000 20%, transparent 80%);
+}
+
+/* One-pixel rule used to separate major sections. */
+.rule-gradient {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-hairline),
+    var(--color-hairline),
+    transparent
+  );
+}
+
+/* Card elevation. Soft and short — no bloom. */
+.card-lift {
+  box-shadow:
+    0 1px 2px rgba(17, 24, 39, 0.04),
+    0 8px 24px -16px rgba(17, 24, 39, 0.18);
+}
+
+.card-lift-hover {
+  transition:
+    box-shadow 0.25s ease,
+    transform 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.card-lift-hover:hover {
+  box-shadow:
+    0 1px 2px rgba(17, 24, 39, 0.05),
+    0 16px 36px -20px rgba(17, 24, 39, 0.28);
+}
+
+/* Small elevation for SVG shapes, which cannot take box-shadow. */
+.svg-lift {
+  filter: drop-shadow(0 1px 2px rgba(17, 24, 39, 0.1));
+}
+
+/* --- Scroll reveal --------------------------------------------------------
+   Driven by IntersectionObserver in components/motion.
+   ------------------------------------------------------------------------- */
+[data-reveal] {
+  opacity: 0;
+  transition:
+    opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+[data-reveal="up"] {
+  transform: translate3d(0, 22px, 0);
+}
+[data-reveal="left"] {
+  transform: translate3d(-26px, 0, 0);
+}
+[data-reveal="right"] {
+  transform: translate3d(26px, 0, 0);
+}
+[data-reveal="scale"] {
+  transform: scale(0.95);
+}
+[data-reveal="fade"] {
+  transform: none;
+}
+
+[data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* Nothing can reveal these without JavaScript, so never hide them. */
+@media (scripting: none) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- Keyframes ------------------------------------------------------------ */
+
+/* Draws an SVG path in, used for connection lines between nodes. */
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: var(--dash, 100);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* A short segment travelling along a connection line. */
+@keyframes travel {
+  0% {
+    stroke-dashoffset: var(--dash, 100);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: calc(var(--dash, 100) * -1);
+    opacity: 0;
+  }
+}
+
+@keyframes node-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* A quiet ring around the centre node — a pulse, not a bloom. */
+@keyframes ring-pulse {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.92);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateY(-8%);
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(108%);
+    opacity: 0;
+  }
+}
+
+/* A signal travelling down a connector between pipeline stages. */
+@keyframes flow-dot {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(var(--flow-distance, 40px));
+    opacity: 0;
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+/* --- Graph visualisations -------------------------------------------------
+   Shared by the hero surface map and the endpoint-discovery map. Animations
+   are inert until the component adds `.is-playing`, which it does when the
+   graph scrolls into view. `--i` staggers each element.
+   ------------------------------------------------------------------------- */
+.graph .graph-link {
+  stroke-dasharray: var(--dash);
+  stroke-dashoffset: var(--dash);
+}
+
+.graph.is-playing .graph-link {
+  animation: draw-line 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+
+.graph .graph-node {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.graph.is-playing .graph-node {
+  animation: node-in 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+  animation-delay: calc(320ms + var(--i, 0) * 90ms);
+}
+
+.graph .graph-pulse {
+  opacity: 0;
+  stroke-dasharray: 22 var(--dash);
+}
+
+.graph.is-playing .graph-pulse {
+  animation: travel 2.8s linear infinite;
+  animation-delay: calc(1s + var(--i, 0) * 340ms);
+}
+
+.graph .graph-ring {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.graph.is-playing .graph-ring {
+  animation: ring-pulse 3.6s ease-out infinite;
+  animation-delay: calc(var(--i, 0) * 1.2s);
+}
+
+@media (scripting: none) {
+  .graph .graph-node {
+    opacity: 1;
+  }
+  .graph .graph-link {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* --- Endpoint map ---------------------------------------------------------
+   Rows of the discovered application surface, revealed top-down as the
+   section scrolls in, with a scan sweep running down the panel.
+   ------------------------------------------------------------------------- */
+.map-panel .map-row {
+  opacity: 0;
+  transform: translate3d(-14px, 0, 0);
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--i, 0) * 75ms);
+}
+
+.map-panel.is-playing .map-row {
+  opacity: 1;
+  transform: none;
+}
+
+.map-panel .map-rail {
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--i, 0) * 75ms);
+}
+
+.map-panel.is-playing .map-rail {
+  transform: scaleY(1);
+}
+
+.map-panel .map-sweep {
+  opacity: 0;
+}
+
+.map-panel.is-playing .map-sweep {
+  animation: sweep 5s ease-in-out infinite;
+  animation-delay: 1.1s;
+}
+
+@media (scripting: none) {
+  .map-panel .map-row {
+    opacity: 1;
+    transform: none;
+  }
+  .map-panel .map-rail {
+    transform: none;
+  }
+}
+
+/* --- Workflow rail -------------------------------------------------------- */
+.rail-track {
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--i, 0) * 110ms);
+}
+
+.is-playing .rail-track {
+  transform: scaleY(1);
+}
+
+.rail-step {
+  opacity: 0;
+  transform: translate3d(18px, 0, 0);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--i, 0) * 110ms);
+}
+
+.is-playing .rail-step {
+  opacity: 1;
+  transform: none;
+}
+
+@media (scripting: none) {
+  .rail-track {
+    transform: none;
+  }
+  .rail-step {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- Pipeline flow -------------------------------------------------------- */
+.flow-dot {
+  opacity: 0;
+}
+
+.is-playing .flow-dot {
+  animation: flow-dot 2.8s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 260ms);
+}
+
+/* --- Reduced motion -------------------------------------------------------
+   Everything above is decorative. With reduced motion requested, content is
+   shown in its final state and nothing moves.
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* This one ends invisible, so pin it open instead of letting it finish. */
+  .graph .graph-ring {
+    display: none;
+  }
+}
+
+/* The auth modal uses the native <dialog> element. */
+dialog {
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
 }

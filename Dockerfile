@@ -13,6 +13,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# Opts this build into `output: "standalone"` (see next.config.ts). Only the
+# container image needs it; Vercel builds must not set it.
+ENV NEXT_OUTPUT=standalone
 RUN npm run build
 
 # Stage 3: Runner
