@@ -13,6 +13,8 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
+import { ApiError } from "@/lib/api";
+import { resendVerificationRequest } from "@/lib/auth";
 import { DEFAULT_AUTHENTICATED_ROUTE } from "@/lib/routes";
 
 export type LoginFormProps = {
@@ -33,6 +35,9 @@ export function LoginForm({
   const { signIn } = useAuth();
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<FormErrors>(NO_FORM_ERRORS);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,12 +56,37 @@ export function LoginForm({
 
     setPending(true);
     setErrors(NO_FORM_ERRORS);
+    setUnverifiedEmail(null);
+    setResendStatus(null);
+
     try {
       await signIn({ email, password });
       router.replace(redirectTo);
     } catch (error) {
-      setErrors(toFormErrors(error));
+      if (error instanceof ApiError && error.code === "EMAIL_NOT_VERIFIED") {
+        setUnverifiedEmail(email);
+        setErrors({
+          message: "Please verify your email address before signing in.",
+          fields: {},
+        });
+      } else {
+        setErrors(toFormErrors(error));
+      }
       setPending(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    if (!unverifiedEmail) return;
+    setResending(true);
+    setResendStatus(null);
+    try {
+      const res = await resendVerificationRequest(unverifiedEmail);
+      setResendStatus(res.message || "Verification link sent! Check your inbox.");
+    } catch (err) {
+      setResendStatus(err instanceof ApiError ? err.message : "Failed to resend verification email.");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -73,7 +103,33 @@ export function LoginForm({
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        {errors.message ? <Alert tone="error">{errors.message}</Alert> : null}
+        {errors.message ? (
+          <div className="space-y-2">
+            <Alert tone={unverifiedEmail ? "info" : "error"}>
+              {errors.message}
+            </Alert>
+            {unverifiedEmail ? (
+              <div className="rounded-lg border border-hairline bg-raised/40 p-3 text-xs space-y-2">
+                <p className="text-muted">
+                  Did not receive the verification link or did it expire?
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="w-full"
+                  loading={resending}
+                  onClick={handleResendVerification}
+                >
+                  {resending ? "Sending link…" : "Resend verification email"}
+                </Button>
+                {resendStatus ? (
+                  <p className="font-medium text-brand">{resendStatus}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <TextField
           label="Email"

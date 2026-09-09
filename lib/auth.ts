@@ -4,6 +4,8 @@
  * Endpoints owned by `sentinelscan-api`:
  *   POST /auth/register
  *   POST /auth/login
+ *   POST /auth/verify-email
+ *   POST /auth/resend-verification
  *   GET  /auth/me
  *   POST /auth/logout
  *   GET  /auth/google
@@ -17,6 +19,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
+  emailVerified: boolean;
   avatarUrl: string | null;
   provider: string | null;
   createdAt: string | null;
@@ -39,7 +42,7 @@ function readString(source: Record<string, unknown>, key: string): string | null
 }
 
 /**
- * Normalises the `/auth/me` payload into {@link AuthUser}.
+ * Normalises the `/auth/me` or `/auth/verify-email` payload into {@link AuthUser}.
  *
  * The API may return the user directly or wrapped in a `user` envelope, so
  * both shapes are accepted. Nothing beyond these fields is kept in frontend
@@ -62,6 +65,7 @@ export function toAuthUser(payload: unknown): AuthUser | null {
     id,
     email,
     name: readString(source, "name"),
+    emailVerified: Boolean(source.emailVerified),
     avatarUrl: readString(source, "avatarUrl") ?? readString(source, "picture"),
     provider: readString(source, "provider"),
     createdAt: readString(source, "createdAt"),
@@ -77,8 +81,23 @@ export async function loginRequest(input: LoginInput): Promise<void> {
   await apiFetch<unknown>("/auth/login", { method: "POST", json: input });
 }
 
-export async function registerRequest(input: RegisterInput): Promise<void> {
-  await apiFetch<unknown>("/auth/register", { method: "POST", json: input });
+export async function registerRequest(input: RegisterInput): Promise<{ message?: string }> {
+  return apiFetch<{ message?: string }>("/auth/register", { method: "POST", json: input });
+}
+
+export async function verifyEmailRequest(token: string): Promise<AuthUser | null> {
+  const result = await apiFetch<unknown>("/auth/verify-email", {
+    method: "POST",
+    json: { token },
+  });
+  return toAuthUser(result);
+}
+
+export async function resendVerificationRequest(email: string): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/auth/resend-verification", {
+    method: "POST",
+    json: { email },
+  });
 }
 
 export async function logoutRequest(): Promise<void> {

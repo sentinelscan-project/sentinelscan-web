@@ -45,8 +45,8 @@ export default async function LoginPage(props: PageProps<"/login">) {
                   Please try again, or sign in with your email and password.
                 </Alert>
               ) : registeredEmail ? (
-                <Alert tone="success" title="Account created">
-                  Sign in as {registeredEmail} to continue.
+                <Alert tone="info" title="Check your inbox">
+                  We sent a verification link to <span className="font-medium text-ink">{registeredEmail}</span>. Please verify your email address to activate your account.
                 </Alert>
               ) : null
             }

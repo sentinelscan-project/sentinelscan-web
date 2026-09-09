@@ -63,7 +63,7 @@ export function RegisterForm({ onRegistered, footer }: RegisterFormProps) {
 
   return (
     <div className="space-y-5">
-      <GoogleButton label="Sign up with Google" />
+      <GoogleButton />
 
       <div className="flex items-center gap-3 text-xs uppercase tracking-wider text-faint">
         <span className="h-px flex-1 bg-raised" />
