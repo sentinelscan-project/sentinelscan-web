@@ -12,6 +12,7 @@ import {
 import { GoogleButton } from "@/components/auth/google-button";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { PasswordField } from "@/components/ui/password-field";
 import { TextField } from "@/components/ui/text-field";
 import { ApiError } from "@/lib/api";
 import { resendVerificationRequest } from "@/lib/auth";
@@ -140,10 +141,9 @@ export function LoginForm({
           error={errors.fields.email}
           disabled={pending}
         />
-        <TextField
+        <PasswordField
           label="Password"
           name="password"
-          type="password"
           autoComplete="current-password"
           placeholder="••••••••••"
           error={errors.fields.password}

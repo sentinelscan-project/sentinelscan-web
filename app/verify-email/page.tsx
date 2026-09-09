@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -30,12 +30,34 @@ function VerifyEmailContent() {
   const [resendNotice, setResendNotice] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
 
+  // Guards against firing `POST /auth/verify-email` twice for the same token.
+  // The token is single-use, so a second real request for one already spent
+  // by the first would come back "already used" even though verification
+  // succeeded — and unlike a plain read, this is not safe to just re-run.
+  //
+  // React's development Strict Mode deliberately mounts, cleans up, and
+  // re-mounts this effect once to surface exactly this kind of non-idempotent
+  // side effect. The ref (untouched by that simulated remount) is what caps
+  // the real network call at one — but the request must still be *awaited* by
+  // whichever effect instance survives, or the promise's resolution has
+  // nothing left with `active: true` to update `status` from. So the ref
+  // holds the in-flight promise itself, not just a "was it sent" flag: the
+  // first instance starts the request and stores it, its own handler is
+  // discarded by cleanup as usual, and the second (surviving) instance
+  // attaches its own `.then`/`.catch` to that same stored promise rather than
+  // sending a second request.
+  const verificationRef = useRef<{ token: string; promise: ReturnType<typeof verifyEmailRequest> } | null>(null);
+
   useEffect(() => {
     if (!token) return;
 
     let active = true;
 
-    verifyEmailRequest(token)
+    if (verificationRef.current?.token !== token) {
+      verificationRef.current = { token, promise: verifyEmailRequest(token) };
+    }
+
+    verificationRef.current.promise
       .then(async () => {
         if (!active) return;
         await refresh();
@@ -102,7 +124,7 @@ function VerifyEmailContent() {
               Email verified!
             </h1>
             <p className="text-sm text-muted">
-              Your email has been confirmed and your SentinelScan workspace is now active.
+              Your email address has been confirmed and you&rsquo;re signed in.
             </p>
           </div>
 

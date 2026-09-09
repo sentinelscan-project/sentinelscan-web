@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { LoginForm } from "@/components/auth/login-form";
 import { RegisterForm } from "@/components/auth/register-form";
-import { Alert } from "@/components/ui/alert";
+import { VerificationPending } from "@/components/auth/verification-pending";
 import { DEFAULT_AUTHENTICATED_ROUTE } from "@/lib/routes";
 
 export type AuthMode = "signin" | "register";
@@ -65,7 +65,21 @@ export function AuthPanel({
 
   function switchTo(next: AuthMode) {
     setMode(next);
-    if (next === "register") setRegisteredEmail(null);
+    // Leaving the pending "check your email" state, whichever tab it's for.
+    setRegisteredEmail(null);
+  }
+
+  if (registeredEmail) {
+    // No header or tabs here: `VerificationPending` carries its own heading,
+    // and this state has left both "sign in" and "create account" behind —
+    // the account exists but is not usable until the link is followed, so
+    // showing the sign-in form now would just invite a rejected attempt.
+    return (
+      <VerificationPending
+        email={registeredEmail}
+        onUseDifferentEmail={() => setRegisteredEmail(null)}
+      />
+    );
   }
 
   return (
@@ -80,25 +94,9 @@ export function AuthPanel({
       <ModeTabs mode={mode} onChange={switchTo} />
 
       {mode === "signin" ? (
-        <LoginForm
-          redirectTo={redirectTo}
-          notice={
-            registeredEmail ? (
-              <Alert tone="success" title="Account created">
-                Sign in as {registeredEmail} to continue.
-              </Alert>
-            ) : null
-          }
-        />
+        <LoginForm redirectTo={redirectTo} />
       ) : (
-        <RegisterForm
-          onRegistered={(email) => {
-            // The API does not sign a new account in, so hand the user to the
-            // sign-in tab with their email confirmed.
-            setRegisteredEmail(email);
-            setMode("signin");
-          }}
-        />
+        <RegisterForm onRegistered={setRegisteredEmail} />
       )}
     </div>
   );
