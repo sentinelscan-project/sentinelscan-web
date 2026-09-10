@@ -1,9 +1,17 @@
 # SentinelScan Web (`sentinelscan-web`)
 
 ## Overview
-`sentinelscan-web` is the web frontend service for the **SentinelScan** application security platform. Stage 0 established the Next.js skeleton, build pipeline, Docker setup, and developer workflow. Stage 1 adds the public landing page, identity and authentication against `sentinelscan-api`, and the authenticated application shell.
+`sentinelscan-web` is the web frontend service for the **SentinelScan** authorized web application security assessment platform. Built with Next.js 16 (App Router), React 19, TypeScript, and Tailwind CSS.
 
-> **Stage 1 Notice**: Only identity, authentication, and the authenticated shell are implemented. Target management, endpoint discovery, scanning, OWASP ZAP integration, finding correlation, AI analysis, and report generation belong to later stages. The routes for those sections exist so that route protection and navigation are established, and they show empty states rather than placeholder data.
+Stage 7 implements the full security assessment interface:
+- **Authentication**: Session cookies via HttpOnly JWT, session guards, and login/registration.
+- **Security Dashboard**: High-level metrics, active targets, recent scans, and findings distribution based on real API data.
+- **Targets Management**: Authorized target registry, validation, status toggles, and direct scan triggering.
+- **Target Detail**: Target configuration, historical scan records, and active assessment controls.
+- **Scans & Live Status**: Scan list, filtering by status, polling for running scans with terminal status cutoff, and cancellation.
+- **Findings Explorer**: Scoped finding queries, severity/confidence/category filtering, and pagination.
+- **Finding Detail & Safe Evidence**: Complete technical breakdown (CWE, WASC, remediation, attack payload, evidence), rendered with strict plain-text escaping (zero dangerous raw HTML execution).
+- **AI Security Analyst UX**: Contextual analysis layer powered by Google Gemini (via `sentinelscan-api`), presenting executive summaries, methodology limitations, finding correlations, compounding risk, and separate AI priority distinct from scanner severity.
 
 ---
 
@@ -63,10 +71,11 @@ The API sets its session cookie on its own origin, so it must allow the web app'
    npm install
    ```
 
-3. **Verify code quality**:
+3. **Verify code quality & run tests**:
    ```bash
    npm run lint
    npm run typecheck
+   npm test
    ```
 
 4. **Start the development server**:

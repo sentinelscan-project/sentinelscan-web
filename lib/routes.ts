@@ -14,8 +14,6 @@ export const APP_NAV = [
   { href: "/targets", label: "Targets" },
   { href: "/scans", label: "Scans" },
   { href: "/findings", label: "Findings" },
-  { href: "/reports", label: "Reports" },
-  { href: "/settings", label: "Settings" },
 ] as const;
 
 export type AppNavItem = (typeof APP_NAV)[number];
