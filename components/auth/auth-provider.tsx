@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { ApiError } from "@/lib/api";
+import { ApiError, onUnauthorized } from "@/lib/api";
 import {
   fetchCurrentUser,
   loginRequest,
@@ -27,6 +27,14 @@ type AuthContextValue = {
    * user being signed out (for example the API being unreachable).
    */
   serviceError: string | null;
+  /**
+   * True once a previously-authenticated session has been invalidated by the
+   * API mid-use (an expired or revoked token surfacing as a `401` on some
+   * later request), as opposed to the user never having signed in. Read by
+   * `RequireAuth` to tell the login page which message to show, then cleared
+   * on the next successful sign-in.
+   */
+  sessionExpired: boolean;
   /** Re-reads `GET /auth/me`; the API is always the authority on the session. */
   refresh: () => Promise<AuthUser | null>;
   signIn: (input: LoginInput) => Promise<void>;
@@ -39,11 +47,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [serviceError, setServiceError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const applySession = useCallback((currentUser: AuthUser | null) => {
     setUser(currentUser);
     setStatus(currentUser ? "authenticated" : "unauthenticated");
     setServiceError(null);
+    if (currentUser) setSessionExpired(false);
     return currentUser;
   }, []);
 
@@ -68,6 +78,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // whether a session exists. State is set from the response callback.
     void fetchCurrentUser().then(applySession, applySessionFailure);
   }, [applySession, applySessionFailure]);
+
+  useEffect(() => {
+    // Only a session that was actually established can "expire" — a `401`
+    // encountered before that (e.g. a wrong-password login attempt, or the
+    // startup `GET /auth/me` check itself) is the ordinary signed-out case
+    // `applySessionFailure` already reports, not something to flag here.
+    return onUnauthorized(() => {
+      setStatus((current) => {
+        if (current !== "authenticated") return current;
+        setSessionExpired(true);
+        return "unauthenticated";
+      });
+      setUser(null);
+      setServiceError(null);
+    });
+  }, []);
 
   const signIn = useCallback(
     async (input: LoginInput) => {
@@ -95,12 +121,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setStatus("unauthenticated");
       setServiceError(null);
+      setSessionExpired(false);
     }
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, serviceError, refresh, signIn, signOut }),
-    [status, user, serviceError, refresh, signIn, signOut],
+    () => ({ status, user, serviceError, sessionExpired, refresh, signIn, signOut }),
+    [status, user, serviceError, sessionExpired, refresh, signIn, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

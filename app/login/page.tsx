@@ -18,6 +18,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const redirectTo = sanitizeRedirect(firstParam(params.next));
   const registeredEmail = firstParam(params.registered);
   const oauthFailed = firstParam(params.error) !== undefined;
+  const sessionExpired = firstParam(params.expired) !== undefined;
 
   const registerHref =
     redirectTo === DEFAULT_AUTHENTICATED_ROUTE
@@ -40,7 +41,11 @@ export default async function LoginPage(props: PageProps<"/login">) {
           <LoginForm
             redirectTo={redirectTo}
             notice={
-              oauthFailed ? (
+              sessionExpired ? (
+                <Alert tone="info" title="Your session has expired">
+                  Please sign in again to continue.
+                </Alert>
+              ) : oauthFailed ? (
                 <Alert tone="error" title="Google sign-in did not complete">
                   Please try again, or sign in with your email and password.
                 </Alert>

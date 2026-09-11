@@ -18,6 +18,26 @@ export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+/**
+ * Notified whenever any request comes back `401`.
+ *
+ * `AuthProvider` is the only subscriber: session state otherwise only
+ * changes on mount or right after `signIn`/`signOut`, so a token that
+ * expires (or is revoked) while the user is deep in a protected page would
+ * otherwise surface as a one-off error on whatever request happened to hit
+ * it, with the rest of the app still believing the session is good. Routing
+ * every `401` through here lets `AuthProvider` flip to `unauthenticated`
+ * immediately, which `RequireAuth` is already watching and reacts to by
+ * redirecting to `/login`.
+ */
+type UnauthorizedListener = () => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(listener);
+  return () => unauthorizedListeners.delete(listener);
+}
+
 /** A single field-level validation error returned by the API. */
 export type ApiFieldError = {
   field: string;
@@ -151,6 +171,10 @@ export async function apiFetch<T>(
       payload.message.length > 0
         ? payload.message
         : fallbackMessage(response.status);
+
+    if (response.status === 401) {
+      unauthorizedListeners.forEach((listener) => listener());
+    }
 
     throw new ApiError(response.status, message, {
       code: typeof payload.code === "string" ? payload.code : null,

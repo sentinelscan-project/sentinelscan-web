@@ -14,14 +14,16 @@ import { AuthStatusScreen } from "@/components/auth/auth-status-screen";
  * of truth. Children are rendered only once that answer is `authenticated`.
  */
 export function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { status } = useAuth();
+  const { status, sessionExpired } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (status !== "unauthenticated") return;
-    router.replace(`/login?next=${encodeURIComponent(pathname)}`);
-  }, [status, router, pathname]);
+    const query = new URLSearchParams({ next: pathname });
+    if (sessionExpired) query.set("expired", "1");
+    router.replace(`/login?${query.toString()}`);
+  }, [status, sessionExpired, router, pathname]);
 
   if (status !== "authenticated") {
     return (
